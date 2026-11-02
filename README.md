@@ -18,21 +18,19 @@ Prefer to work offline? Download the Windows app from the
 
 ## Usage
 
-1. Drop a recording onto the page or click *Datei wählen* (MP4, WAV, MP3, M4A, FLAC, OGG, … – video files don't need to be converted).
+1. Drop a recording onto the page or click *Choose file* (MP4, WAV, MP3, M4A, FLAC, OGG, … – video files don't need to be converted).
 2. The analysis starts automatically. Detected tones are listed and marked in the spectrum; untick any you want to keep.
-3. Click *Fiepen entfernen* and compare with the *Original* / *Ohne Fiepen* buttons.
+3. Click *Remove beeps* and compare with the *Original* / *Without beeps* buttons.
 4. Save as a small MP4 (AAC) or as lossless WAV inside a ZIP.
-
-> The interface is currently in German.
 
 ### Settings
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| Ab Frequenz (Hz) | 300 | Ignore everything below this frequency (bass, mains hum). |
-| Empfindlichkeit (dB) | 6 | How far a tone must stand out from its surroundings. Lower finds more. |
-| Mindest-Dauer (%) | 85 | In how much of the recording a tone has to be present. Lower this if the beep only appears from time to time. |
-| Kerbenbreite (×) | 1 | Wider helps with wavering beeps, narrower preserves more of the sound. |
+| Min. frequency (Hz) | 300 | Ignore everything below this frequency (bass, mains hum). |
+| Sensitivity (dB) | 6 | How far a tone must stand out from its surroundings. Lower finds more. |
+| Min. duration (%) | 85 | In how much of the recording a tone has to be present. Lower this if the beep only appears from time to time. |
+| Notch width (×) | 1 | Wider helps with wavering beeps, narrower preserves more of the sound. |
 
 ## Offline app (Windows)
 

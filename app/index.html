@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>De-Beeping</title>
 <link rel="icon" type="image/png" href="icon.png">
 <style>
-/* Schriften liegen lokal in fonts/ (offline lauffähig, keine Anfrage an Google) */
+/* Fonts are bundled in fonts/ (works offline, no request to Google) */
 @font-face{font-family:"Instrument Sans";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/instrument-sans-latin-400-normal.woff2") format("woff2")}
 @font-face{font-family:"Instrument Sans";font-weight:600;font-style:normal;font-display:swap;src:url("fonts/instrument-sans-latin-600-normal.woff2") format("woff2")}
 @font-face{font-family:"Instrument Sans";font-weight:700;font-style:normal;font-display:swap;src:url("fonts/instrument-sans-latin-700-normal.woff2") format("woff2")}
 @font-face{font-family:"JetBrains Mono";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2")}
 @font-face{font-family:"JetBrains Mono";font-weight:500;font-style:normal;font-display:swap;src:url("fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2")}
-/* Layout: eine Spalte, Werkzeug-Ablauf von oben nach unten (Datei -> Spektrum -> Töne -> Ergebnis) */
+/* Layout: single column, tool flow from top to bottom (file -> spectrum -> tones -> result) */
 :root{
   --bg:#f1f4f3; --surface:#ffffff; --fg:#14201b; --muted:#5a6a63; --line:#d6dfda;
   --accent:#0d7566; --accent-fg:#ffffff; --hit:#cf3a32; --soft:#e5efec;
@@ -90,16 +90,16 @@ table.rep th{color:var(--muted);font-weight:500;font-family:var(--f-ui)}
 <main>
   <header>
     <h1>De-Beeping</h1>
-    <p>Findet dauerhafte Pfeif- und Fiep-Töne samt Obertönen und filtert sie heraus. Alles läuft auf deinem Gerät, nichts wird hochgeladen.</p>
+    <p>Finds constant whistles and beeps, including their overtones, and filters them out. Everything runs on your device, nothing is uploaded.</p>
   </header>
 
   <section class="sec" aria-labelledby="h-file">
-    <h2 id="h-file">Aufnahme</h2>
+    <h2 id="h-file">Recording</h2>
     <div class="drop" id="dropzone">
-      <div class="drop-txt"><strong>MP4, WAV, MP3 oder M4A hier ablegen</strong><span>oder</span></div>
+      <div class="drop-txt"><strong>Drop an MP4, WAV, MP3 or M4A file here</strong><span>or</span></div>
       <div class="row">
-        <label class="filebtn" for="file">Datei wählen<input id="file" type="file" accept="audio/*,video/*,.wav,.mp3,.m4a,.mp4,.flac,.ogg,.aac,.mov,.webm"></label>
-        <button id="demo" type="button">Beispiel laden</button>
+        <label class="filebtn" for="file">Choose file<input id="file" type="file" accept="audio/*,video/*,.wav,.mp3,.m4a,.mp4,.flac,.ogg,.aac,.mov,.webm"></label>
+        <button id="demo" type="button">Load example</button>
       </div>
     </div>
     <div class="meta" id="fileinfo">–</div>
@@ -108,41 +108,41 @@ table.rep th{color:var(--muted);font-weight:500;font-family:var(--f-ui)}
   </section>
 
   <section class="sec" aria-labelledby="h-spec">
-    <h2 id="h-spec">Spektrum</h2>
-    <div class="plotwrap"><canvas id="plot" aria-label="Spektrum: wie weit jede Frequenz aus der Umgebung herausragt"></canvas></div>
-    <div class="legend"><span><i style="background:var(--accent)"></i>Aufnahme</span><span><i style="background:var(--hit)"></i>wird gefiltert</span><span><i style="background:var(--muted)"></i>bleibt drin</span></div>
+    <h2 id="h-spec">Spectrum</h2>
+    <div class="plotwrap"><canvas id="plot" aria-label="Spectrum: how far each frequency stands out from its surroundings"></canvas></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Recording</span><span><i style="background:var(--hit)"></i>will be filtered</span><span><i style="background:var(--muted)"></i>stays in</span></div>
   </section>
 
   <section class="sec" aria-labelledby="h-tones">
-    <h2 id="h-tones">Gefundene Töne</h2>
-    <div class="tones" id="tones"><div class="empty">Noch nichts analysiert.</div></div>
+    <h2 id="h-tones">Detected tones</h2>
+    <div class="tones" id="tones"><div class="empty">Nothing analyzed yet.</div></div>
     <div class="row">
-      <button class="primary" id="run" type="button" disabled>Fiepen entfernen</button>
+      <button class="primary" id="run" type="button" disabled>Remove beeps</button>
     </div>
     <details>
-      <summary>Einstellungen</summary>
+      <summary>Settings</summary>
       <div class="grid">
-        <label for="s-minf">Ab Frequenz (Hz)<input id="s-minf" type="number" inputmode="decimal" value="300" min="20" max="20000"><small>Tiefere Töne werden ignoriert, z.&nbsp;B. Bass oder Netzbrummen.</small></label>
-        <label for="s-prom">Empfindlichkeit (dB)<input id="s-prom" type="number" inputmode="decimal" value="6" min="2" max="30" step="0.5"><small>Wie weit ein Ton herausragen muss. Kleiner findet mehr.</small></label>
-        <label for="s-pers">Mindest-Dauer (%)<input id="s-pers" type="number" inputmode="decimal" value="85" min="10" max="100" step="5"><small>In wie viel Prozent der Aufnahme der Ton da sein muss.</small></label>
-        <label for="s-width">Kerbenbreite (×)<input id="s-width" type="number" inputmode="decimal" value="1" min="0.3" max="5" step="0.1"><small>Breiter hilft bei schwankendem Fiepen, schmaler schont den Klang.</small></label>
+        <label for="s-minf">Min. frequency (Hz)<input id="s-minf" type="number" inputmode="decimal" value="300" min="20" max="20000"><small>Lower tones are ignored, e.g. bass or mains hum.</small></label>
+        <label for="s-prom">Sensitivity (dB)<input id="s-prom" type="number" inputmode="decimal" value="6" min="2" max="30" step="0.5"><small>How far a tone must stand out. Lower finds more.</small></label>
+        <label for="s-pers">Min. duration (%)<input id="s-pers" type="number" inputmode="decimal" value="85" min="10" max="100" step="5"><small>In what percentage of the recording the tone must be present.</small></label>
+        <label for="s-width">Notch width (×)<input id="s-width" type="number" inputmode="decimal" value="1" min="0.3" max="5" step="0.1"><small>Wider helps with wavering beeps, narrower preserves the sound.</small></label>
       </div>
-      <div class="row" style="margin-top:12px"><button id="reanalyze" type="button" disabled>Neu analysieren</button></div>
+      <div class="row" style="margin-top:12px"><button id="reanalyze" type="button" disabled>Analyze again</button></div>
     </details>
   </section>
 
   <section class="sec" id="result" aria-labelledby="h-res" hidden>
-    <h2 id="h-res">Ergebnis</h2>
+    <h2 id="h-res">Result</h2>
     <div class="row">
-      <div class="seg" role="group" aria-label="Anhören">
+      <div class="seg" role="group" aria-label="Listen">
         <button type="button" id="ab-orig" aria-pressed="false">Original</button>
-        <button type="button" id="ab-clean" aria-pressed="true">Ohne Fiepen</button>
+        <button type="button" id="ab-clean" aria-pressed="true">Without beeps</button>
       </div>
     </div>
     <audio id="player" controls preload="metadata"></audio>
     <div class="row">
-      <button class="primary" id="save-mp4" type="button" hidden>Als MP4 speichern (klein)</button>
-      <button id="save-zip" type="button">Als WAV speichern (ZIP, verlustfrei)</button>
+      <button class="primary" id="save-mp4" type="button" hidden>Save as MP4 (small)</button>
+      <button id="save-zip" type="button">Save as WAV (ZIP, lossless)</button>
     </div>
     <div class="note" id="savenote"></div>
     <div class="repwrap"><table class="rep" id="rep"></table></div>
@@ -153,6 +153,7 @@ table.rep th{color:var(--muted);font-weight:500;font-family:var(--f-ui)}
 "use strict";
 let pcm=null, nch=0, sr=0, frames=0, spec=null;
 const post=(o,t)=>postMessage(o,t||[]);
+const ordinal=n=>n+(n%100>=11&&n%100<=13?"th":({1:"st",2:"nd",3:"rd"}[n%10]||"th"));
 const prog=(label,p)=>post({type:"progress",label,p});
 
 function str4(dv,o){return String.fromCharCode(dv.getUint8(o),dv.getUint8(o+1),dv.getUint8(o+2),dv.getUint8(o+3));}
@@ -190,7 +191,7 @@ function parseWav(buf){
 
 function setAudio(p,c,s){ pcm=p; nch=c; sr=s; frames=Math.floor(p.length/c); spec=null; }
 
-/* ---- FFT (radix-2, zwei reelle Blöcke pro komplexem Durchlauf) ---- */
+/* ---- FFT (radix-2, two real blocks per complex pass) ---- */
 const fftCache={};
 function getFFT(N){
   if(fftCache[N]) return fftCache[N];
@@ -214,7 +215,7 @@ function getFFT(N){
   return fftCache[N]=f;
 }
 
-/* Leistungsspektren je Zeitabschnitt (dB) */
+/* Power spectra per time slice (dB) */
 function spectra(src,label){
   const N=sr<=48000?32768:65536, half=N/2+1, df=sr/N;
   const fr=Math.floor(src.length/nch);
@@ -243,7 +244,7 @@ function spectra(src,label){
     cnt[Math.floor(fi/fpc)]++; if(two) cnt[Math.floor((fi+1)/fpc)]++;
     const p=fi/nF; if(p-last>0.02){ last=p; prog(label,p); }
   }
-  // kurzen Rest-Abschnitt dem vorigen zuschlagen
+  // merge a short trailing slice into the previous one
   let chunks=acc.map((a,i)=>({a,n:cnt[i]})).filter(x=>x.n>0);
   if(chunks.length>1&&chunks[chunks.length-1].n<fpc/2){ const l=chunks.pop(), p=chunks[chunks.length-1]; for(let k=0;k<half;k++) p.a[k]+=l.a[k]; p.n+=l.n; }
   const glob=new Float64Array(half); let tot=0;
@@ -252,7 +253,7 @@ function spectra(src,label){
   return {N,half,df,dbC,dbG};
 }
 
-/* Wie oft (in % der ~1,5-s-Fenster) ragt jede Frequenz heraus? */
+/* How often (in % of the ~1.5 s windows) does each frequency stand out? */
 function persistPass(src,freqs,label){
   const N=sr<=48000?32768:65536, half=N/2+1, df=sr/N;
   const fr=Math.floor(src.length/nch), nF=Math.max(1,Math.floor(fr/N));
@@ -306,12 +307,12 @@ function refine(db,i,df){
 
 function analyze(o){
   if(!spec){
-    const s=spectra(pcm,"Analysiere…"); s.prom=prominence(s.dbG,s.df);
-    // Kandidaten-Pool: alle lokalen Spitzen > 3 dB, deren Dauer in einem zweiten Durchlauf gemessen wird
+    const s=spectra(pcm,"Analyzing…"); s.prom=prominence(s.dbG,s.df);
+    // Candidate pool: all local peaks > 3 dB, whose duration is measured in a second pass
     let pool=[]; for(let i=Math.max(1,Math.ceil(20/s.df));i<s.prom.length-1;i++) if(s.prom[i]>3&&s.prom[i]>=s.prom[i-1]&&s.prom[i]>=s.prom[i+1]) pool.push(i);
     pool.sort((a,b)=>s.prom[b]-s.prom[a]); pool=pool.slice(0,2500);
     s.poolF=pool.map(i=>refine(s.dbG,i,s.df));
-    s.poolP=persistPass(pcm,s.poolF,"Prüfe Dauer der Töne…");
+    s.poolP=persistPass(pcm,s.poolF,"Measuring tone duration…");
     spec=s;
   }
   const {df,dbG,prom,poolF,poolP}=spec, nyq=sr/2;
@@ -328,20 +329,20 @@ function analyze(o){
     if(c.used||c.persist<o.minPersist) continue;
     if(tones.some(t=>Math.abs(t.freq-c.freq)<3)) continue;
     group++; const f0=c.freq; c.used=true;
-    tones.push({freq:f0,prom:c.prom,persist:c.persist,kind:"Grundton",h:1,group,checked:true});
+    tones.push({freq:f0,prom:c.prom,persist:c.persist,kind:"Fundamental",h:1,group,checked:true});
     let miss=0;
     for(let h=2;h*f0<nyq-200&&miss<2;h++){
       const tgt=h*f0, tol=Math.max(3,0.002*tgt), r=promAt(dbG,df,tgt,tol);
       const fr=r.prom>3?refine(dbG,r.bin,df):0, pp=fr?persistence(fr):0;
       if(fr&&pp>=40){
-        tones.push({freq:fr,prom:r.prom,persist:pp,kind:h+". Oberton",h,group,checked:true});
+        tones.push({freq:fr,prom:r.prom,persist:pp,kind:ordinal(h)+" overtone",h,group,checked:true});
         for(const cc of cands) if(Math.abs(cc.freq-fr)<tol) cc.used=true;
         miss=0;
       } else miss++;
     }
   }
   const rest=cands.filter(c=>!c.used&&c.persist<o.minPersist).sort((a,b)=>b.prom-a.prom).slice(0,10)
-    .map(c=>({freq:c.freq,prom:c.prom,persist:c.persist,kind:"kurzzeitig",h:1,group:0,checked:false}));
+    .map(c=>({freq:c.freq,prom:c.prom,persist:c.persist,kind:"transient",h:1,group:0,checked:false}));
   const all=tones.concat(rest).sort((a,b)=>((a.group===0)-(b.group===0))||(a.group-b.group)||(a.freq-b.freq));
   return {tones:all, prom:spec.prom, df};
 }
@@ -369,7 +370,7 @@ function filter(tones,factor){
       }
       for(let i=0;i<n;i++){ let v=Math.round(buf[i]); out[(st+i)*nch+c]=v>32767?32767:v<-32768?-32768:v; }
     }
-    const p=st/frames; if(p-last>0.01){ last=p; prog("Filtere…",p); }
+    const p=st/frames; if(p-last>0.01){ last=p; prog("Filtering…",p); }
   }
   return out;
 }
@@ -377,7 +378,7 @@ function filter(tones,factor){
 function demo(){
   const s=44100, dur=20, n=s*dur, ch=2, a=new Int16Array(n*ch);
   let seed=7; const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
-  // stimmähnlich: gleitende Tonhöhe mit Vibrato und Pausen, dazu leises Rauschen und das Fiepen
+  // voice-like: gliding pitch with vibrato and pauses, plus quiet noise and the beep
   const NL=0.35, seq=[]; for(let k=0;k<=Math.ceil(dur/NL)+1;k++) seq.push({f:140*Math.pow(2,rnd()*1.6), on:rnd()>0.2});
   let lp=0, ph=0;
   for(let i=0;i<n;i++){
@@ -404,15 +405,15 @@ onmessage=e=>{
       if(!w){ post({type:"notwav"}); return; }
       setAudio(w.pcm,w.ch,w.sr); post({type:"loaded",sr,nch,frames,note:w.note});
     } else if(m.type==="loadpcm"){
-      setAudio(new Int16Array(m.buffer),m.ch,m.sr); post({type:"loaded",sr,nch,frames,note:"dekodiert"});
+      setAudio(new Int16Array(m.buffer),m.ch,m.sr); post({type:"loaded",sr,nch,frames,note:"decoded"});
     } else if(m.type==="demo"){
       const d=demo(); const copy=d.a.slice(); setAudio(d.a,d.ch,d.s);
-      post({type:"loaded",sr,nch,frames,note:"Beispiel",demo:copy.buffer},[copy.buffer]);
+      post({type:"loaded",sr,nch,frames,note:"example",demo:copy.buffer},[copy.buffer]);
     } else if(m.type==="analyze"){
       const r=analyze(m.opts); post({type:"analyzed",tones:r.tones,prom:r.prom,df:r.df});
     } else if(m.type==="filter"){
       const out=filter(m.tones,m.factor);
-      const s=spectra(out,"Prüfe Ergebnis…");
+      const s=spectra(out,"Verifying result…");
       const report=m.tones.map(t=>({freq:t.freq,before:t.prom,after:promAt(s.dbG,s.df,t.freq,3).prom}));
       post({type:"filtered",out:out.buffer,report,sr,nch},[out.buffer]);
     }
@@ -439,20 +440,20 @@ function busy(b){
 }
 const fmtDur=s=>Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
 
-/* ---------- Worker-Antworten ---------- */
+/* ---------- Worker replies ---------- */
 let pendingFile=null;
 worker.onmessage=async e=>{
   const m=e.data;
   if(m.type==="progress"){ status(m.label); bar(m.p); return; }
-  if(m.type==="error"){ busy(false); bar(0); status("Fehler: "+m.message,true); return; }
+  if(m.type==="error"){ busy(false); bar(0); status("Error: "+m.message,true); return; }
   if(m.type==="notwav"){ decodeOther(pendingFile); return; }
   if(m.type==="loaded"){
     st.sr=m.sr; st.nch=m.nch; st.frames=m.frames;
     if(m.demo){ setOrig(URL.createObjectURL(wavBlob(new Int16Array(m.demo),m.sr,m.nch))); }
     $("fileinfo").innerHTML="";
-    const name=document.createElement("span"); name.textContent=(m.note==="Beispiel"?"Melodie mit künstlichem 1-kHz-Fiepen":(st.file&&st.file.name)||"");
-    $("fileinfo").append(name, document.createTextNode("  ·  "+m.sr+" Hz · "+(m.nch===1?"Mono":m.nch===2?"Stereo":m.nch+" Kanäle")+" · "+fmtDur(m.frames/m.sr)+(m.note&&m.note!=="Beispiel"?" · "+m.note:"")));
-    if(m.note==="Beispiel"){ const t=document.createElement("span"); t.className="tag"; t.textContent="Beispiel"; t.style.marginLeft="8px"; $("fileinfo").prepend(t,document.createTextNode(" ")); }
+    const name=document.createElement("span"); name.textContent=(m.note==="example"?"Melody with an artificial 1 kHz beep":(st.file&&st.file.name)||"");
+    $("fileinfo").append(name, document.createTextNode("  ·  "+m.sr+" Hz · "+(m.nch===1?"Mono":m.nch===2?"Stereo":m.nch+" channels")+" · "+fmtDur(m.frames/m.sr)+(m.note&&m.note!=="example"?" · "+m.note:"")));
+    if(m.note==="example"){ const t=document.createElement("span"); t.className="tag"; t.textContent="Example"; t.style.marginLeft="8px"; $("fileinfo").prepend(t,document.createTextNode(" ")); }
     $("result").hidden=true; st.out=null;
     analyze();
     return;
@@ -462,8 +463,8 @@ worker.onmessage=async e=>{
     renderTones(); draw(); busy(false); bar(0);
     const g=new Set(m.tones.filter(t=>t.group>0).map(t=>t.group)).size;
     const n=m.tones.filter(t=>t.group>0).length;
-    status(g?`Gefunden: ${g===1?"ein Störton":g+" Störtöne"} mit ${n} Frequenzen (inkl. Obertöne).`
-             :"Kein dauerhafter Störton gefunden. Unter Einstellungen die Empfindlichkeit oder Mindest-Dauer senken.");
+    status(g?`Found: ${g===1?"one interfering tone":g+" interfering tones"} with ${n} frequencies (incl. overtones).`
+             :"No constant interfering tone found. Lower the sensitivity or min. duration under Settings.");
     return;
   }
   if(m.type==="filtered"){
@@ -476,30 +477,30 @@ worker.onmessage=async e=>{
     setPlayer("clean");
     st.codec=await pickCodec(m.sr,m.nch);
     $("save-mp4").hidden=!st.codec;
-    $("savenote").textContent=st.codec?"":"MP4 kann dieser Browser nicht erzeugen. Die WAV-Datei im ZIP funktioniert immer.";
-    busy(false); bar(0); status("Fertig. Hör kurz rein und speichere dann.");
+    $("savenote").textContent=st.codec?"":"This browser cannot create MP4. The WAV file in the ZIP always works.";
+    busy(false); bar(0); status("Done. Have a quick listen, then save.");
     $("result").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
   }
 };
 
-/* ---------- Laden ---------- */
+/* ---------- Loading ---------- */
 function setOrig(url){ if(st.origUrl) URL.revokeObjectURL(st.origUrl); st.origUrl=url; }
 async function loadFile(f){
   if(!f||st.busy) return;
   st.file=f; pendingFile=f; st.base=f.name.replace(/\.[^.]+$/,"")||"aufnahme";
-  st.tones=[]; renderTones(); busy(true); status("Lese Datei…"); bar(0);
+  st.tones=[]; renderTones(); busy(true); status("Reading file…"); bar(0);
   setOrig(URL.createObjectURL(f));
   try{ const buf=await f.arrayBuffer(); worker.postMessage({type:"loadwav",buffer:buf},[buf]); }
-  catch(err){ busy(false); status("Die Datei ließ sich nicht lesen. Sie ist eventuell zu groß für den Speicher dieses Geräts.",true); }
+  catch(err){ busy(false); status("The file could not be read. It may be too large for this device's memory.",true); }
 }
 $("file").addEventListener("change",ev=>{ const f=ev.target.files&&ev.target.files[0]; ev.target.value=""; loadFile(f); });
 
-/* Ziehen & Ablegen: irgendwo auf der Seite */
+/* Drag & drop: anywhere on the page */
 let dragDepth=0, cover=null;
 const hasFiles=e=>e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes("Files");
 function showCover(on){
   $("dropzone").classList.toggle("over",on);
-  if(on&&!cover){ cover=document.createElement("div"); cover.className="dropcover"; cover.textContent="Loslassen, um die Datei zu laden"; document.body.append(cover); }
+  if(on&&!cover){ cover=document.createElement("div"); cover.className="dropcover"; cover.textContent="Release to load the file"; document.body.append(cover); }
   if(!on&&cover){ cover.remove(); cover=null; }
 }
 window.addEventListener("dragenter",e=>{ if(!hasFiles(e)) return; e.preventDefault(); dragDepth++; showCover(true); });
@@ -508,11 +509,11 @@ window.addEventListener("dragleave",e=>{ if(!hasFiles(e)) return; dragDepth=Math
 window.addEventListener("drop",e=>{
   if(!hasFiles(e)) return; e.preventDefault(); dragDepth=0; showCover(false);
   const f=e.dataTransfer.files&&e.dataTransfer.files[0];
-  if(st.busy){ status("Bitte warten, bis die aktuelle Datei fertig ist.",true); return; }
+  if(st.busy){ status("Please wait until the current file is finished.",true); return; }
   loadFile(f);
 });
 async function decodeOther(f){
-  status("Dekodiere Audio…");
+  status("Decoding audio…");
   try{
     const buf=await f.arrayBuffer();
     const ctx=new OfflineAudioContext(1,1,48000);
@@ -520,22 +521,22 @@ async function decodeOther(f){
     const ch=ab.numberOfChannels, n=ab.length, out=new Int16Array(n*ch);
     for(let c=0;c<ch;c++){ const d=ab.getChannelData(c); for(let i=0;i<n;i++){ const v=Math.round(d[i]*32767); out[i*ch+c]=v>32767?32767:v<-32768?-32768:v; } }
     worker.postMessage({type:"loadpcm",buffer:out.buffer,ch,sr:ab.sampleRate},[out.buffer]);
-  }catch(err){ busy(false); bar(0); status("Dieses Format kann der Browser nicht öffnen. Versuch es mit WAV, MP3 oder M4A.",true); }
+  }catch(err){ busy(false); bar(0); status("The browser cannot open this format. Try WAV, MP3 or M4A.",true); }
 }
 $("demo").addEventListener("click",()=>loadDemo());
-function loadDemo(){ st.file=null; st.base="beispiel"; st.tones=[]; renderTones(); busy(true); status("Erzeuge Beispiel…"); worker.postMessage({type:"demo"}); }
+function loadDemo(){ st.file=null; st.base="example"; st.tones=[]; renderTones(); busy(true); status("Generating example…"); worker.postMessage({type:"demo"}); }
 
-/* ---------- Analyse ---------- */
+/* ---------- Analysis ---------- */
 function opts(){
   const n=(id,d)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:d; };
   return {minFreq:n("s-minf",300),minProm:n("s-prom",6),minPersist:n("s-pers",85),width:n("s-width",1)};
 }
-function analyze(){ busy(true); status("Analysiere…"); worker.postMessage({type:"analyze",opts:opts()}); }
+function analyze(){ busy(true); status("Analyzing…"); worker.postMessage({type:"analyze",opts:opts()}); }
 $("reanalyze").addEventListener("click",()=>{ $("result").hidden=true; analyze(); });
 
 function renderTones(){
   const box=$("tones"); box.innerHTML="";
-  if(!st.tones.length){ const d=document.createElement("div"); d.className="empty"; d.textContent=st.frames?"Keine auffälligen Töne gefunden.":"Noch nichts analysiert."; box.append(d); return; }
+  if(!st.tones.length){ const d=document.createElement("div"); d.className="empty"; d.textContent=st.frames?"No prominent tones found.":"Nothing analyzed yet."; box.append(d); return; }
   st.tones.forEach((t,i)=>{
     const row=document.createElement("label"); row.className="tone"+(t.checked?"":" off"); row.htmlFor="t"+i;
     const cb=document.createElement("input"); cb.type="checkbox"; cb.id="t"+i; cb.checked=t.checked;
@@ -543,13 +544,13 @@ function renderTones(){
     const f=document.createElement("span"); f.className="f"; f.textContent=t.freq.toFixed(1)+" Hz";
     const d=document.createElement("span"); d.className="d"; d.textContent=t.prom.toFixed(1)+" dB · "+Math.round(t.persist)+" %";
     const k=document.createElement("span"); k.className="k";
-    if(t.group>0){ const b=document.createElement("b"); b.textContent=t.kind; k.append(b, document.createTextNode(t.h===1?" · dauerhaft vorhanden":"")); }
-    else k.textContent="kurzzeitig, vermutlich Musik oder Stimme";
+    if(t.group>0){ const b=document.createElement("b"); b.textContent=t.kind; k.append(b, document.createTextNode(t.h===1?" · constantly present":"")); }
+    else k.textContent="short-lived, probably music or voice";
     row.append(cb,f,d,k); box.append(row);
   });
 }
 
-/* ---------- Spektrum zeichnen ---------- */
+/* ---------- Drawing the spectrum ---------- */
 function draw(){
   const cv=$("plot"), dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight;
   if(!W) return;
@@ -558,20 +559,20 @@ function draw(){
   const css=getComputedStyle(document.documentElement), col=n=>css.getPropertyValue(n).trim();
   const padL=34,padR=8,padT=10,padB=24, pw=W-padL-padR, ph=H-padT-padB;
   g.font="11px "+col("--f-data"); g.textBaseline="middle";
-  if(!st.prom){ g.fillStyle=col("--muted"); g.textAlign="center"; g.fillText("Spektrum erscheint nach der Analyse",W/2,H/2); return; }
+  if(!st.prom){ g.fillStyle=col("--muted"); g.textAlign="center"; g.fillText("The spectrum appears after the analysis",W/2,H/2); return; }
   const prom=st.prom, df=st.df, fmin=Math.max(30,df*2), fmax=st.sr/2;
   const lx=Math.log10(fmin), rx=Math.log10(fmax);
   const X=f=>padL+(Math.log10(f)-lx)/(rx-lx)*pw;
   let ymax=20; for(let i=Math.ceil(fmin/df);i<prom.length;i++) if(prom[i]>ymax) ymax=prom[i];
   ymax=Math.ceil((ymax+3)/10)*10; const ymin=-10;
   const Y=v=>padT+(1-(v-ymin)/(ymax-ymin))*ph;
-  // Raster
+  // Grid
   g.strokeStyle=col("--line"); g.lineWidth=1; g.fillStyle=col("--muted");
   g.textAlign="right";
   for(let v=0;v<=ymax;v+=10){ const y=Math.round(Y(v))+.5; g.beginPath(); g.moveTo(padL,y); g.lineTo(W-padR,y); g.stroke(); g.fillText(v+"",padL-6,y); }
   g.textAlign="center";
   for(const f of [50,100,200,500,1000,2000,5000,10000,20000]){ if(f<fmin||f>fmax) continue; const x=Math.round(X(f))+.5; g.beginPath(); g.moveTo(x,padT); g.lineTo(x,padT+ph); g.stroke(); g.fillText(f>=1000?(f/1000)+"k":f+"",x,H-10); }
-  // Kurve: je Pixelspalte das Maximum
+  // Curve: maximum per pixel column
   g.strokeStyle=col("--accent"); g.lineWidth=1.2; g.beginPath();
   let started=false;
   for(let px=0;px<=pw;px++){
@@ -582,7 +583,7 @@ function draw(){
     if(!started){ g.moveTo(padL+px,y); started=true; } else g.lineTo(padL+px,y);
   }
   g.stroke();
-  // Markierungen
+  // Markers
   for(const t of st.tones){
     if(t.freq<fmin||t.freq>fmax) continue;
     const x=Math.round(X(t.freq))+.5;
@@ -596,20 +597,20 @@ let rz; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(d
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
 new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 
-/* ---------- Filtern ---------- */
+/* ---------- Filtering ---------- */
 $("run").addEventListener("click",()=>{
   const sel=st.tones.filter(t=>t.checked).map(t=>({freq:t.freq,prom:t.prom,h:t.h}));
   if(!sel.length) return;
-  busy(true); status("Filtere…"); bar(0);
+  busy(true); status("Filtering…"); bar(0);
   worker.postMessage({type:"filter",tones:sel,factor:opts().width});
 });
 function renderReport(rep){
   const t=$("rep"); t.innerHTML="";
-  const hr=t.insertRow(); for(const h of ["Frequenz","vorher","nachher"]){ const th=document.createElement("th"); th.textContent=h; hr.append(th); }
+  const hr=t.insertRow(); for(const h of ["Frequency","before","after"]){ const th=document.createElement("th"); th.textContent=h; hr.append(th); }
   for(const r of rep){ const tr=t.insertRow(); tr.insertCell().textContent=r.freq.toFixed(1)+" Hz"; tr.insertCell().textContent=r.before.toFixed(1)+" dB"; tr.insertCell().textContent=r.after.toFixed(1)+" dB"; }
 }
 
-/* ---------- Anhören A/B ---------- */
+/* ---------- A/B listening ---------- */
 function setPlayer(which){
   const a=$("player"), url=which==="orig"?st.origUrl:st.cleanUrl; if(!url) return;
   const tPos=a.currentTime||0, playing=!a.paused;
@@ -645,7 +646,7 @@ async function crc32(parts){
 }
 async function zipBlob(name,parts){
   const size=parts.reduce((s,p)=>s+p.length,0);
-  if(size>0xFFFFFFF0) throw new Error("Datei zu groß für ZIP");
+  if(size>0xFFFFFFF0) throw new Error("File too large for ZIP");
   const crc=await crc32(parts), nm=new TextEncoder().encode(name), d=new Date();
   const dt=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate(), tm=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1);
   const lh=new DataView(new ArrayBuffer(30));
@@ -693,36 +694,36 @@ let dlP=null;
 const getDownloads=()=>dlP||(dlP=(window.claude&&window.claude.use?window.claude.use("downloads"):Promise.resolve(null)).catch(()=>null));
 async function offer(filename,blob){
   const dl=await getDownloads();
-  if(!dl){ // eigenständig im Browser geöffnet: normaler Download
+  if(!dl){ // opened standalone in a browser: regular download
     const a=document.createElement("a"), u=URL.createObjectURL(blob); a.href=u; a.download=filename;
     document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000);
-    status("Gespeichert: "+filename); return; }
-  try{ await dl.save({filename,data:blob}); status("Gespeichert: "+filename); }
+    status("Saved: "+filename); return; }
+  try{ await dl.save({filename,data:blob}); status("Saved: "+filename); }
   catch(err){
     const code=err&&err.code;
-    if(code==="declined") status("Speichern abgebrochen.");
-    else if(code==="too_large") status("Die Datei ist zu groß für diese App. Nimm die kleinere MP4-Variante.",true);
-    else if(code==="rate_limited") status("Es ist schon ein Speichern-Dialog offen. Kurz warten und nochmal tippen.",true);
-    else status("Speichern hat nicht geklappt"+(code?" ("+code+")":"")+".",true);
+    if(code==="declined") status("Saving cancelled.");
+    else if(code==="too_large") status("The file is too large for this app. Use the smaller MP4 variant.",true);
+    else if(code==="rate_limited") status("A save dialog is already open. Wait a moment and try again.",true);
+    else status("Saving failed"+(code?" ("+code+")":"")+".",true);
   }
 }
 $("save-zip").addEventListener("click",async()=>{
-  if(!st.out) return; busy(true); status("Packe WAV in ZIP…");
+  if(!st.out) return; busy(true); status("Packing WAV into ZIP…");
   try{
     const head=wavHeader(st.out.byteLength,st.sr,st.nch);
     const blob=await zipBlob(st.base+"_debeeped.wav",[head,new Uint8Array(st.out.buffer,st.out.byteOffset,st.out.byteLength)]);
     bar(0); await offer(st.base+"_debeeped.zip",blob);
-  }catch(err){ status("ZIP fehlgeschlagen: "+(err.message||err),true); }
+  }catch(err){ status("ZIP failed: "+(err.message||err),true); }
   busy(false); bar(0);
 });
 $("save-mp4").addEventListener("click",async()=>{
-  if(!st.out||!st.codec) return; busy(true); status("Kodiere MP4…");
+  if(!st.out||!st.codec) return; busy(true); status("Encoding MP4…");
   try{ const blob=await encodeMp4(st.out,st.sr,st.nch,st.codec); bar(0); await offer(st.base+"_debeeped.mp4",blob); }
-  catch(err){ status("MP4 fehlgeschlagen: "+(err.message||err)+". Nimm die WAV-Variante.",true); }
+  catch(err){ status("MP4 failed: "+(err.message||err)+". Use the WAV variant.",true); }
   busy(false); bar(0);
 });
 
-/* ---------- Start: Beispiel laden, damit man sofort sieht, was passiert ---------- */
+/* ---------- Start: load the example so you can see right away what happens ---------- */
 draw();
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(draw);
 loadDemo();
