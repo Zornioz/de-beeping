@@ -1,0 +1,25 @@
+appId: com.zornioz.debeeping
+productName: De-Beeping
+directories:
+  buildResources: resources
+  output: release
+files:
+  - main.js
+  - package.json
+  - app/**/*
+  - resources/icon.png
+win:
+  icon: resources/icon.ico
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+portable:
+  artifactName: '${productName}-${version}-portable.${ext}'
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: '${productName}-${version}-setup.${ext}'

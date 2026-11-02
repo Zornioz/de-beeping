@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>De-Beeping</title>
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+/* Schriften liegen lokal in fonts/ (offline lauffähig, keine Anfrage an Google) */
+@font-face{font-family:"Instrument Sans";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/instrument-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Instrument Sans";font-weight:600;font-style:normal;font-display:swap;src:url("fonts/instrument-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Instrument Sans";font-weight:700;font-style:normal;font-display:swap;src:url("fonts/instrument-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:400;font-style:normal;font-display:swap;src:url("fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:500;font-style:normal;font-display:swap;src:url("fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2")}
+/* Layout: eine Spalte, Werkzeug-Ablauf von oben nach unten (Datei -> Spektrum -> Töne -> Ergebnis) */
+:root{
+  --bg:#f1f4f3; --surface:#ffffff; --fg:#14201b; --muted:#5a6a63; --line:#d6dfda;
+  --accent:#0d7566; --accent-fg:#ffffff; --hit:#cf3a32; --soft:#e5efec;
+  --f-ui:"Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-data:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1412; --surface:#151d1a; --fg:#e4ebe8; --muted:#90a29a; --line:#28342f;
+  --accent:#3dbfa9; --accent-fg:#06211c; --hit:#ff6b5f; --soft:#1b2a25; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1412; --surface:#151d1a; --fg:#e4ebe8; --muted:#90a29a; --line:#28342f;
+  --accent:#3dbfa9; --accent-fg:#06211c; --hit:#ff6b5f; --soft:#1b2a25; color-scheme:dark }
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px;margin:0}
+main{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header h1{font-size:1.9rem;line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.sec h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button,.filebtn{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  padding:10px 14px;cursor:pointer;min-height:44px}
+button.primary,.filebtn{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,.filebtn:focus-within,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.filebtn{position:relative;display:inline-flex;align-items:center}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;transition:border-color .15s,background .15s}
+.drop-txt{display:flex;flex-direction:column;gap:2px}
+.drop-txt span{font-size:.85rem;color:var(--muted)}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.dropcover{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--bg) 82%, transparent);
+  border:3px dashed var(--accent);font-size:1.3rem;font-weight:600;color:var(--accent);pointer-events:none;text-align:center;padding:16px}
+@media (hover:none){ .drop{border:0;padding:0} .drop-txt{display:none} }
+.meta{font-family:var(--f-data);font-size:.82rem;color:var(--muted);overflow-wrap:anywhere;min-width:0}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--accent)}
+canvas{width:100%;height:210px;display:block}
+.plotwrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:6px}
+.tones{display:flex;flex-direction:column}
+.tone{display:grid;grid-template-columns:28px 1fr auto;gap:4px 10px;align-items:center;padding:9px 4px;border-top:1px solid var(--line);cursor:pointer}
+.tone:first-child{border-top:0}
+.tone input{width:20px;height:20px;accent-color:var(--hit);margin:0}
+.tone .f{font-family:var(--f-data);font-weight:500;font-variant-numeric:tabular-nums}
+.tone .d{font-family:var(--f-data);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.tone .k{grid-column:2 / 4;font-size:.8rem;color:var(--muted)}
+.tone.off .f{color:var(--muted)}
+.tone .k b{color:var(--hit);font-weight:600}
+.empty{color:var(--muted);font-size:.9rem}
+details summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:10px}
+.grid label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:600}
+.grid small{font-weight:400;color:var(--muted);font-size:.76rem;line-height:1.35}
+.grid input{font:inherit;font-family:var(--f-data);padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);width:100%;box-sizing:border-box}
+.prog{height:6px;background:var(--soft);border-radius:99px;overflow:hidden}
+.prog div{height:100%;width:0;background:var(--accent);transition:width .15s}
+.status{font-size:.88rem;color:var(--muted);min-height:1.3em}
+.status.err{color:var(--hit)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-height:38px;padding:6px 12px;background:transparent}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+audio{width:100%}
+table.rep{border-collapse:collapse;font-family:var(--f-data);font-size:.82rem;font-variant-numeric:tabular-nums;width:100%}
+table.rep td,table.rep th{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line)}
+table.rep th{color:var(--muted);font-weight:500;font-family:var(--f-ui)}
+.repwrap{overflow-x:auto;max-height:220px;overflow-y:auto}
+.note{font-size:.82rem;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){ .prog div{transition:none} }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>De-Beeping</h1>
+    <p>Findet dauerhafte Pfeif- und Fiep-Töne samt Obertönen und filtert sie heraus. Alles läuft auf deinem Gerät, nichts wird hochgeladen.</p>
+  </header>
+
+  <section class="sec" aria-labelledby="h-file">
+    <h2 id="h-file">Aufnahme</h2>
+    <div class="drop" id="dropzone">
+      <div class="drop-txt"><strong>MP4, WAV, MP3 oder M4A hier ablegen</strong><span>oder</span></div>
+      <div class="row">
+        <label class="filebtn" for="file">Datei wählen<input id="file" type="file" accept="audio/*,video/*,.wav,.mp3,.m4a,.mp4,.flac,.ogg,.aac,.mov,.webm"></label>
+        <button id="demo" type="button">Beispiel laden</button>
+      </div>
+    </div>
+    <div class="meta" id="fileinfo">–</div>
+    <div class="prog" aria-hidden="true"><div id="bar"></div></div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-spec">
+    <h2 id="h-spec">Spektrum</h2>
+    <div class="plotwrap"><canvas id="plot" aria-label="Spektrum: wie weit jede Frequenz aus der Umgebung herausragt"></canvas></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Aufnahme</span><span><i style="background:var(--hit)"></i>wird gefiltert</span><span><i style="background:var(--muted)"></i>bleibt drin</span></div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-tones">
+    <h2 id="h-tones">Gefundene Töne</h2>
+    <div class="tones" id="tones"><div class="empty">Noch nichts analysiert.</div></div>
+    <div class="row">
+      <button class="primary" id="run" type="button" disabled>Fiepen entfernen</button>
+    </div>
+    <details>
+      <summary>Einstellungen</summary>
+      <div class="grid">
+        <label for="s-minf">Ab Frequenz (Hz)<input id="s-minf" type="number" inputmode="decimal" value="300" min="20" max="20000"><small>Tiefere Töne werden ignoriert, z.&nbsp;B. Bass oder Netzbrummen.</small></label>
+        <label for="s-prom">Empfindlichkeit (dB)<input id="s-prom" type="number" inputmode="decimal" value="6" min="2" max="30" step="0.5"><small>Wie weit ein Ton herausragen muss. Kleiner findet mehr.</small></label>
+        <label for="s-pers">Mindest-Dauer (%)<input id="s-pers" type="number" inputmode="decimal" value="85" min="10" max="100" step="5"><small>In wie viel Prozent der Aufnahme der Ton da sein muss.</small></label>
+        <label for="s-width">Kerbenbreite (×)<input id="s-width" type="number" inputmode="decimal" value="1" min="0.3" max="5" step="0.1"><small>Breiter hilft bei schwankendem Fiepen, schmaler schont den Klang.</small></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button id="reanalyze" type="button" disabled>Neu analysieren</button></div>
+    </details>
+  </section>
+
+  <section class="sec" id="result" aria-labelledby="h-res" hidden>
+    <h2 id="h-res">Ergebnis</h2>
+    <div class="row">
+      <div class="seg" role="group" aria-label="Anhören">
+        <button type="button" id="ab-orig" aria-pressed="false">Original</button>
+        <button type="button" id="ab-clean" aria-pressed="true">Ohne Fiepen</button>
+      </div>
+    </div>
+    <audio id="player" controls preload="metadata"></audio>
+    <div class="row">
+      <button class="primary" id="save-mp4" type="button" hidden>Als MP4 speichern (klein)</button>
+      <button id="save-zip" type="button">Als WAV speichern (ZIP, verlustfrei)</button>
+    </div>
+    <div class="note" id="savenote"></div>
+    <div class="repwrap"><table class="rep" id="rep"></table></div>
+  </section>
+</main>
+
+<script type="text/plain" id="worker-src">
+"use strict";
+let pcm=null, nch=0, sr=0, frames=0, spec=null;
+const post=(o,t)=>postMessage(o,t||[]);
+const prog=(label,p)=>post({type:"progress",label,p});
+
+function str4(dv,o){return String.fromCharCode(dv.getUint8(o),dv.getUint8(o+1),dv.getUint8(o+2),dv.getUint8(o+3));}
+function parseWav(buf){
+  if(buf.byteLength<44) return null;
+  const dv=new DataView(buf);
+  const riff=str4(dv,0);
+  if((riff!=="RIFF"&&riff!=="RF64")||str4(dv,8)!=="WAVE") return null;
+  let p=12, fmt=null, off=-1, len=0;
+  while(p+8<=buf.byteLength){
+    const id=str4(dv,p); const l=dv.getUint32(p+4,true);
+    if(id==="fmt "){
+      fmt={format:dv.getUint16(p+8,true),ch:dv.getUint16(p+10,true),sr:dv.getUint32(p+12,true),bits:dv.getUint16(p+22,true)};
+      if(fmt.format===0xFFFE&&l>=26) fmt.format=dv.getUint16(p+32,true);
+    } else if(id==="data"){
+      off=p+8; len=(l===0||l===0xFFFFFFFF)?buf.byteLength-off:Math.min(l,buf.byteLength-off); break;
+    }
+    p+=8+l+(l&1);
+  }
+  if(!fmt||off<0||!fmt.ch||!fmt.sr) return null;
+  const bps=fmt.bits/8, fr=Math.floor(len/(bps*fmt.ch)), n=fr*fmt.ch;
+  if(fmt.format===1&&fmt.bits===16){
+    return {pcm: off%2===0?new Int16Array(buf,off,n):new Int16Array(buf.slice(off,off+n*2)), ch:fmt.ch, sr:fmt.sr, note:""};
+  }
+  const a=new Int16Array(n);
+  const cl=v=>v>32767?32767:v<-32768?-32768:v;
+  if(fmt.format===1&&fmt.bits===24){ for(let i=0,o=off;i<n;i++,o+=3){ const v=dv.getUint8(o)|(dv.getUint8(o+1)<<8)|(dv.getInt8(o+2)<<16); a[i]=v>>8; } }
+  else if(fmt.format===1&&fmt.bits===32){ for(let i=0,o=off;i<n;i++,o+=4) a[i]=dv.getInt32(o,true)>>16; }
+  else if(fmt.format===1&&fmt.bits===8){ for(let i=0,o=off;i<n;i++,o++) a[i]=(dv.getUint8(o)-128)<<8; }
+  else if(fmt.format===3&&fmt.bits===32){ for(let i=0,o=off;i<n;i++,o+=4) a[i]=cl(Math.round(dv.getFloat32(o,true)*32767)); }
+  else if(fmt.format===3&&fmt.bits===64){ for(let i=0,o=off;i<n;i++,o+=8) a[i]=cl(Math.round(dv.getFloat64(o,true)*32767)); }
+  else return null;
+  return {pcm:a, ch:fmt.ch, sr:fmt.sr, note:fmt.bits+" Bit → 16 Bit"};
+}
+
+function setAudio(p,c,s){ pcm=p; nch=c; sr=s; frames=Math.floor(p.length/c); spec=null; }
+
+/* ---- FFT (radix-2, zwei reelle Blöcke pro komplexem Durchlauf) ---- */
+const fftCache={};
+function getFFT(N){
+  if(fftCache[N]) return fftCache[N];
+  const lg=Math.round(Math.log2(N)), rev=new Uint32Array(N);
+  for(let i=1;i<N;i++) rev[i]=(rev[i>>1]>>1)|((i&1)<<(lg-1));
+  const c=new Float64Array(N/2), s=new Float64Array(N/2);
+  for(let k=0;k<N/2;k++){ c[k]=Math.cos(2*Math.PI*k/N); s[k]=-Math.sin(2*Math.PI*k/N); }
+  const f=(re,im)=>{
+    for(let i=0;i<N;i++){ const j=rev[i]; if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+    for(let size=2;size<=N;size<<=1){
+      const half=size>>1, step=N/size;
+      for(let i=0;i<N;i+=size){
+        for(let j=0,k=0;j<half;j++,k+=step){
+          const a=i+j, b=a+half, wr=c[k], wi=s[k];
+          const tr=re[b]*wr-im[b]*wi, ti=re[b]*wi+im[b]*wr;
+          re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti;
+        }
+      }
+    }
+  };
+  return fftCache[N]=f;
+}
+
+/* Leistungsspektren je Zeitabschnitt (dB) */
+function spectra(src,label){
+  const N=sr<=48000?32768:65536, half=N/2+1, df=sr/N;
+  const fr=Math.floor(src.length/nch);
+  const nF=Math.max(1,Math.floor(fr/N));
+  const chunkSec=Math.min(30,Math.max(2,fr/sr/20));
+  const fpc=Math.max(1,Math.floor(chunkSec*sr/N));
+  const nC=Math.ceil(nF/fpc);
+  const acc=[], cnt=new Float64Array(nC);
+  for(let c=0;c<nC;c++) acc.push(new Float64Array(half));
+  const win=new Float64Array(N); for(let i=0;i<N;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/N);
+  const re=new Float64Array(N), im=new Float64Array(N), fft=getFFT(N);
+  const sc=1/(32768*nch);
+  const fill=(buf,fi)=>{ const s=fi*N; for(let i=0;i<N;i++){ const idx=s+i; if(idx>=fr){buf[i]=0;continue;} let v=0; const b=idx*nch; for(let c=0;c<nch;c++) v+=src[b+c]; buf[i]=v*sc*win[i]; } };
+  let last=0;
+  for(let fi=0;fi<nF;fi+=2){
+    const two=fi+1<nF;
+    fill(re,fi); if(two) fill(im,fi+1); else im.fill(0);
+    fft(re,im);
+    const A=acc[Math.floor(fi/fpc)], B=two?acc[Math.floor((fi+1)/fpc)]:null;
+    for(let k=0;k<half;k++){
+      const nk=(N-k)%N, zr=re[k], zi=im[k], wr=re[nk], wi=im[nk];
+      const ar=(zr+wr)*0.5, ai=(zi-wi)*0.5;
+      A[k]+=ar*ar+ai*ai;
+      if(B){ const br=(zi+wi)*0.5, bi=(wr-zr)*0.5; B[k]+=br*br+bi*bi; }
+    }
+    cnt[Math.floor(fi/fpc)]++; if(two) cnt[Math.floor((fi+1)/fpc)]++;
+    const p=fi/nF; if(p-last>0.02){ last=p; prog(label,p); }
+  }
+  // kurzen Rest-Abschnitt dem vorigen zuschlagen
+  let chunks=acc.map((a,i)=>({a,n:cnt[i]})).filter(x=>x.n>0);
+  if(chunks.length>1&&chunks[chunks.length-1].n<fpc/2){ const l=chunks.pop(), p=chunks[chunks.length-1]; for(let k=0;k<half;k++) p.a[k]+=l.a[k]; p.n+=l.n; }
+  const glob=new Float64Array(half); let tot=0;
+  const dbC=chunks.map(({a,n})=>{ const d=new Float32Array(half); for(let k=0;k<half;k++){ glob[k]+=a[k]; d[k]=10*Math.log10(a[k]/n+1e-20); } tot+=n; return d; });
+  const dbG=new Float32Array(half); for(let k=0;k<half;k++) dbG[k]=10*Math.log10(glob[k]/tot+1e-20);
+  return {N,half,df,dbC,dbG};
+}
+
+/* Wie oft (in % der ~1,5-s-Fenster) ragt jede Frequenz heraus? */
+function persistPass(src,freqs,label){
+  const N=sr<=48000?32768:65536, half=N/2+1, df=sr/N;
+  const fr=Math.floor(src.length/nch), nF=Math.max(1,Math.floor(fr/N));
+  const win=new Float64Array(N); for(let i=0;i<N;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/N);
+  const re=new Float64Array(N), im=new Float64Array(N), fft=getFFT(N), sc=1/(32768*nch);
+  const db=new Float64Array(half), cs=new Float64Array(half+1);
+  const nb=Math.round(75/df), ex=Math.max(2,Math.round(5/df)), pk=Math.max(1,Math.round(2.5/df));
+  const bins=freqs.map(f=>Math.round(f/df)), hits=new Float64Array(freqs.length);
+  const fill=(buf,fi)=>{ const s=fi*N; for(let i=0;i<N;i++){ const idx=s+i; if(idx>=fr){buf[i]=0;continue;} let v=0; const b=idx*nch; for(let c=0;c<nch;c++) v+=src[b+c]; buf[i]=v*sc*win[i]; } };
+  let nW=0, last=0;
+  for(let fi=0;fi<nF;fi+=2){
+    const two=fi+1<nF;
+    fill(re,fi); if(two) fill(im,fi+1); else im.fill(0);
+    fft(re,im);
+    for(let k=0;k<half;k++){
+      const nk=(N-k)%N, zr=re[k], zi=im[k], wr=re[nk], wi=im[nk];
+      const ar=(zr+wr)*0.5, ai=(zi-wi)*0.5, br=(zi+wi)*0.5, bi=(wr-zr)*0.5;
+      db[k]=10*Math.log10(ar*ar+ai*ai+br*br+bi*bi+1e-20);
+      cs[k+1]=cs[k]+db[k];
+    }
+    for(let j=0;j<bins.length;j++){
+      const b=bins[j]; if(b<=0||b>=half) continue;
+      let m=-1e9; for(let i=Math.max(0,b-pk);i<=Math.min(half-1,b+pk);i++) if(db[i]>m) m=db[i];
+      const a0=Math.max(0,b-nb), a1=Math.max(0,b-ex), b0=Math.min(half,b+ex+1), b1=Math.min(half,b+nb+1);
+      const cnt=(a1-a0)+(b1-b0); if(cnt<=0) continue;
+      const floor=((cs[a1]-cs[a0])+(cs[b1]-cs[b0]))/cnt;
+      if(m-floor>6) hits[j]++;
+    }
+    nW++;
+    const p=fi/nF; if(p-last>0.02){ last=p; prog(label,p); }
+  }
+  return Array.from(hits,h=>100*h/nW);
+}
+
+function median(arr,lo,hi,tmp){ const n=hi-lo; for(let i=0;i<n;i++) tmp[i]=arr[lo+i]; const s=tmp.subarray(0,n); s.sort(); return s[n>>1]; }
+function prominence(db,df){
+  const k=Math.max(3,Math.round(150/df)|1), h=k>>1, n=db.length, out=new Float32Array(n), tmp=new Float32Array(k);
+  for(let i=0;i<n;i++){ const lo=Math.max(0,i-h), hi=Math.min(n,i+h+1); out[i]=db[i]-median(db,lo,hi,tmp); }
+  return out;
+}
+function promAt(db,df,freq,tol){
+  const n=db.length, lo=Math.max(0,Math.floor((freq-tol)/df)), hi=Math.min(n-1,Math.ceil((freq+tol)/df));
+  let m=-1e9, mi=lo; for(let i=lo;i<=hi;i++) if(db[i]>m){m=db[i];mi=i;}
+  const h=Math.round(75/df), a=Math.max(0,mi-h), b=Math.min(n,mi+h+1), tmp=new Float32Array(b-a);
+  return {prom:m-median(db,a,b,tmp), bin:mi};
+}
+function refine(db,i,df){
+  if(i>0&&i<db.length-1){ const a=db[i-1],b=db[i],c=db[i+1],d=a-2*b+c; if(d!==0) return (i+0.5*(a-c)/d)*df; }
+  return i*df;
+}
+
+function analyze(o){
+  if(!spec){
+    const s=spectra(pcm,"Analysiere…"); s.prom=prominence(s.dbG,s.df);
+    // Kandidaten-Pool: alle lokalen Spitzen > 3 dB, deren Dauer in einem zweiten Durchlauf gemessen wird
+    let pool=[]; for(let i=Math.max(1,Math.ceil(20/s.df));i<s.prom.length-1;i++) if(s.prom[i]>3&&s.prom[i]>=s.prom[i-1]&&s.prom[i]>=s.prom[i+1]) pool.push(i);
+    pool.sort((a,b)=>s.prom[b]-s.prom[a]); pool=pool.slice(0,2500);
+    s.poolF=pool.map(i=>refine(s.dbG,i,s.df));
+    s.poolP=persistPass(pcm,s.poolF,"Prüfe Dauer der Töne…");
+    spec=s;
+  }
+  const {df,dbG,prom,poolF,poolP}=spec, nyq=sr/2;
+  const persistence=f=>{ let best=-1,bd=3; for(let i=0;i<poolF.length;i++){ const d=Math.abs(poolF[i]-f); if(d<bd){bd=d;best=i;} } return best<0?0:poolP[best]; };
+  // Peaks
+  const lo=Math.ceil(o.minFreq/df), hi=Math.floor((nyq-200)/df), dist=Math.max(1,Math.round(4/df));
+  let idx=[]; for(let i=Math.max(1,lo);i<=hi;i++) if(prom[i]>=o.minProm&&prom[i]>=prom[i-1]&&prom[i]>=prom[i+1]) idx.push(i);
+  idx.sort((a,b)=>prom[b]-prom[a]);
+  const taken=[]; for(const i of idx){ if(taken.every(j=>Math.abs(j-i)>=dist)) taken.push(i); if(taken.length>400) break; }
+  const cands=taken.map(i=>{ const f=refine(dbG,i,df); return {freq:f, prom:prom[i], persist:persistence(f), used:false}; }).sort((a,b)=>a.freq-b.freq);
+
+  const tones=[]; let group=0;
+  for(const c of cands){
+    if(c.used||c.persist<o.minPersist) continue;
+    if(tones.some(t=>Math.abs(t.freq-c.freq)<3)) continue;
+    group++; const f0=c.freq; c.used=true;
+    tones.push({freq:f0,prom:c.prom,persist:c.persist,kind:"Grundton",h:1,group,checked:true});
+    let miss=0;
+    for(let h=2;h*f0<nyq-200&&miss<2;h++){
+      const tgt=h*f0, tol=Math.max(3,0.002*tgt), r=promAt(dbG,df,tgt,tol);
+      const fr=r.prom>3?refine(dbG,r.bin,df):0, pp=fr?persistence(fr):0;
+      if(fr&&pp>=40){
+        tones.push({freq:fr,prom:r.prom,persist:pp,kind:h+". Oberton",h,group,checked:true});
+        for(const cc of cands) if(Math.abs(cc.freq-fr)<tol) cc.used=true;
+        miss=0;
+      } else miss++;
+    }
+  }
+  const rest=cands.filter(c=>!c.used&&c.persist<o.minPersist).sort((a,b)=>b.prom-a.prom).slice(0,10)
+    .map(c=>({freq:c.freq,prom:c.prom,persist:c.persist,kind:"kurzzeitig",h:1,group:0,checked:false}));
+  const all=tones.concat(rest).sort((a,b)=>((a.group===0)-(b.group===0))||(a.group-b.group)||(a.freq-b.freq));
+  return {tones:all, prom:spec.prom, df};
+}
+
+function filter(tones,factor){
+  const secs=[];
+  for(const t of tones){
+    const fc=t.freq; if(!(fc>0&&fc<sr/2)) continue;
+    const bw=factor*(10+2*t.h), Q=fc/bw, w0=2*Math.PI*fc/sr, cs=Math.cos(w0), al=Math.sin(w0)/(2*Q), a0=1+al;
+    const s={b0:1/a0,b1:-2*cs/a0,b2:1/a0,a1:-2*cs/a0,a2:(1-al)/a0};
+    secs.push(s,s,s);
+  }
+  const S=secs.length, out=new Int16Array(pcm.length), BL=65536, buf=new Float64Array(BL);
+  const z1=new Float64Array(S*nch), z2=new Float64Array(S*nch);
+  let last=0;
+  for(let st=0;st<frames;st+=BL){
+    const n=Math.min(BL,frames-st);
+    for(let c=0;c<nch;c++){
+      for(let i=0;i<n;i++) buf[i]=pcm[(st+i)*nch+c];
+      for(let j=0;j<S;j++){
+        const q=secs[j], b0=q.b0,b1=q.b1,b2=q.b2,a1=q.a1,a2=q.a2, zi=c*S+j;
+        let s1=z1[zi], s2=z2[zi];
+        for(let i=0;i<n;i++){ const x=buf[i], y=b0*x+s1; s1=b1*x-a1*y+s2; s2=b2*x-a2*y; buf[i]=y; }
+        z1[zi]=s1; z2[zi]=s2;
+      }
+      for(let i=0;i<n;i++){ let v=Math.round(buf[i]); out[(st+i)*nch+c]=v>32767?32767:v<-32768?-32768:v; }
+    }
+    const p=st/frames; if(p-last>0.01){ last=p; prog("Filtere…",p); }
+  }
+  return out;
+}
+
+function demo(){
+  const s=44100, dur=20, n=s*dur, ch=2, a=new Int16Array(n*ch);
+  let seed=7; const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  // stimmähnlich: gleitende Tonhöhe mit Vibrato und Pausen, dazu leises Rauschen und das Fiepen
+  const NL=0.35, seq=[]; for(let k=0;k<=Math.ceil(dur/NL)+1;k++) seq.push({f:140*Math.pow(2,rnd()*1.6), on:rnd()>0.2});
+  let lp=0, ph=0;
+  for(let i=0;i<n;i++){
+    const t=i/s, step=Math.floor(t/NL), tt=(t-step*NL)/NL;
+    const a0=seq[step], a1=seq[step+1], u=tt*tt*(3-2*tt);
+    const f=(a0.f*(1-u)+a1.f*u)*(1+0.012*Math.sin(2*Math.PI*5.5*t));
+    ph+=2*Math.PI*f/s;
+    const env=a0.on?Math.sin(Math.PI*tt):0;
+    let m=0; for(let h=1;h<=5;h++) m+=Math.sin(ph*h)/(h*h*0.6+0.4); m*=0.2*env;
+    lp=lp*0.97+(rnd()-0.5)*0.03;
+    let w=0; for(let h=1;h<=8;h++) w+=Math.pow(0.75,h-1)*Math.sin(2*Math.PI*1000.6*h*t); w*=0.012;
+    const L=m*0.9+lp+w, R=m*0.7+lp*0.9+w;
+    a[i*2]=Math.max(-32768,Math.min(32767,Math.round(L*32767)));
+    a[i*2+1]=Math.max(-32768,Math.min(32767,Math.round(R*32767)));
+  }
+  return {a,s,ch};
+}
+
+onmessage=e=>{
+  const m=e.data;
+  try{
+    if(m.type==="loadwav"){
+      const w=parseWav(m.buffer);
+      if(!w){ post({type:"notwav"}); return; }
+      setAudio(w.pcm,w.ch,w.sr); post({type:"loaded",sr,nch,frames,note:w.note});
+    } else if(m.type==="loadpcm"){
+      setAudio(new Int16Array(m.buffer),m.ch,m.sr); post({type:"loaded",sr,nch,frames,note:"dekodiert"});
+    } else if(m.type==="demo"){
+      const d=demo(); const copy=d.a.slice(); setAudio(d.a,d.ch,d.s);
+      post({type:"loaded",sr,nch,frames,note:"Beispiel",demo:copy.buffer},[copy.buffer]);
+    } else if(m.type==="analyze"){
+      const r=analyze(m.opts); post({type:"analyzed",tones:r.tones,prom:r.prom,df:r.df});
+    } else if(m.type==="filter"){
+      const out=filter(m.tones,m.factor);
+      const s=spectra(out,"Prüfe Ergebnis…");
+      const report=m.tones.map(t=>({freq:t.freq,before:t.prom,after:promAt(s.dbG,s.df,t.freq,3).prom}));
+      post({type:"filtered",out:out.buffer,report,sr,nch},[out.buffer]);
+    }
+  }catch(err){ post({type:"error",message:String(err&&err.message||err)}); }
+};
+</script>
+
+<script src="vendor/mp4-muxer.js"></script>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const worker=new Worker(URL.createObjectURL(new Blob([$("worker-src").textContent],{type:"text/javascript"})));
+const st={ busy:false, file:null, base:"aufnahme", sr:0, nch:0, frames:0, tones:[], prom:null, df:1,
+           out:null, origUrl:null, cleanUrl:null, cleanWav:null, codec:null };
+
+/* ---------- Status ---------- */
+function status(t,err){ const s=$("status"); s.textContent=t||""; s.classList.toggle("err",!!err); }
+function bar(p){ $("bar").style.width=Math.round(Math.max(0,Math.min(1,p))*100)+"%"; }
+function busy(b){
+  st.busy=b;
+  for(const id of ["file","demo","reanalyze","run","save-zip","save-mp4"]) $(id).disabled=b;
+  if(!b){ $("reanalyze").disabled=!st.frames; $("run").disabled=!st.tones.some(t=>t.checked); }
+}
+const fmtDur=s=>Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
+
+/* ---------- Worker-Antworten ---------- */
+let pendingFile=null;
+worker.onmessage=async e=>{
+  const m=e.data;
+  if(m.type==="progress"){ status(m.label); bar(m.p); return; }
+  if(m.type==="error"){ busy(false); bar(0); status("Fehler: "+m.message,true); return; }
+  if(m.type==="notwav"){ decodeOther(pendingFile); return; }
+  if(m.type==="loaded"){
+    st.sr=m.sr; st.nch=m.nch; st.frames=m.frames;
+    if(m.demo){ setOrig(URL.createObjectURL(wavBlob(new Int16Array(m.demo),m.sr,m.nch))); }
+    $("fileinfo").innerHTML="";
+    const name=document.createElement("span"); name.textContent=(m.note==="Beispiel"?"Melodie mit künstlichem 1-kHz-Fiepen":(st.file&&st.file.name)||"");
+    $("fileinfo").append(name, document.createTextNode("  ·  "+m.sr+" Hz · "+(m.nch===1?"Mono":m.nch===2?"Stereo":m.nch+" Kanäle")+" · "+fmtDur(m.frames/m.sr)+(m.note&&m.note!=="Beispiel"?" · "+m.note:"")));
+    if(m.note==="Beispiel"){ const t=document.createElement("span"); t.className="tag"; t.textContent="Beispiel"; t.style.marginLeft="8px"; $("fileinfo").prepend(t,document.createTextNode(" ")); }
+    $("result").hidden=true; st.out=null;
+    analyze();
+    return;
+  }
+  if(m.type==="analyzed"){
+    st.tones=m.tones; st.prom=m.prom; st.df=m.df;
+    renderTones(); draw(); busy(false); bar(0);
+    const g=new Set(m.tones.filter(t=>t.group>0).map(t=>t.group)).size;
+    const n=m.tones.filter(t=>t.group>0).length;
+    status(g?`Gefunden: ${g===1?"ein Störton":g+" Störtöne"} mit ${n} Frequenzen (inkl. Obertöne).`
+             :"Kein dauerhafter Störton gefunden. Unter Einstellungen die Empfindlichkeit oder Mindest-Dauer senken.");
+    return;
+  }
+  if(m.type==="filtered"){
+    st.out=new Int16Array(m.out);
+    st.cleanWav=wavBlob(st.out,m.sr,m.nch);
+    if(st.cleanUrl) URL.revokeObjectURL(st.cleanUrl);
+    st.cleanUrl=URL.createObjectURL(st.cleanWav);
+    renderReport(m.report);
+    $("result").hidden=false;
+    setPlayer("clean");
+    st.codec=await pickCodec(m.sr,m.nch);
+    $("save-mp4").hidden=!st.codec;
+    $("savenote").textContent=st.codec?"":"MP4 kann dieser Browser nicht erzeugen. Die WAV-Datei im ZIP funktioniert immer.";
+    busy(false); bar(0); status("Fertig. Hör kurz rein und speichere dann.");
+    $("result").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+  }
+};
+
+/* ---------- Laden ---------- */
+function setOrig(url){ if(st.origUrl) URL.revokeObjectURL(st.origUrl); st.origUrl=url; }
+async function loadFile(f){
+  if(!f||st.busy) return;
+  st.file=f; pendingFile=f; st.base=f.name.replace(/\.[^.]+$/,"")||"aufnahme";
+  st.tones=[]; renderTones(); busy(true); status("Lese Datei…"); bar(0);
+  setOrig(URL.createObjectURL(f));
+  try{ const buf=await f.arrayBuffer(); worker.postMessage({type:"loadwav",buffer:buf},[buf]); }
+  catch(err){ busy(false); status("Die Datei ließ sich nicht lesen. Sie ist eventuell zu groß für den Speicher dieses Geräts.",true); }
+}
+$("file").addEventListener("change",ev=>{ const f=ev.target.files&&ev.target.files[0]; ev.target.value=""; loadFile(f); });
+
+/* Ziehen & Ablegen: irgendwo auf der Seite */
+let dragDepth=0, cover=null;
+const hasFiles=e=>e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes("Files");
+function showCover(on){
+  $("dropzone").classList.toggle("over",on);
+  if(on&&!cover){ cover=document.createElement("div"); cover.className="dropcover"; cover.textContent="Loslassen, um die Datei zu laden"; document.body.append(cover); }
+  if(!on&&cover){ cover.remove(); cover=null; }
+}
+window.addEventListener("dragenter",e=>{ if(!hasFiles(e)) return; e.preventDefault(); dragDepth++; showCover(true); });
+window.addEventListener("dragover",e=>{ if(!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect=st.busy?"none":"copy"; });
+window.addEventListener("dragleave",e=>{ if(!hasFiles(e)) return; dragDepth=Math.max(0,dragDepth-1); if(!dragDepth) showCover(false); });
+window.addEventListener("drop",e=>{
+  if(!hasFiles(e)) return; e.preventDefault(); dragDepth=0; showCover(false);
+  const f=e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(st.busy){ status("Bitte warten, bis die aktuelle Datei fertig ist.",true); return; }
+  loadFile(f);
+});
+async function decodeOther(f){
+  status("Dekodiere Audio…");
+  try{
+    const buf=await f.arrayBuffer();
+    const ctx=new OfflineAudioContext(1,1,48000);
+    const ab=await ctx.decodeAudioData(buf);
+    const ch=ab.numberOfChannels, n=ab.length, out=new Int16Array(n*ch);
+    for(let c=0;c<ch;c++){ const d=ab.getChannelData(c); for(let i=0;i<n;i++){ const v=Math.round(d[i]*32767); out[i*ch+c]=v>32767?32767:v<-32768?-32768:v; } }
+    worker.postMessage({type:"loadpcm",buffer:out.buffer,ch,sr:ab.sampleRate},[out.buffer]);
+  }catch(err){ busy(false); bar(0); status("Dieses Format kann der Browser nicht öffnen. Versuch es mit WAV, MP3 oder M4A.",true); }
+}
+$("demo").addEventListener("click",()=>loadDemo());
+function loadDemo(){ st.file=null; st.base="beispiel"; st.tones=[]; renderTones(); busy(true); status("Erzeuge Beispiel…"); worker.postMessage({type:"demo"}); }
+
+/* ---------- Analyse ---------- */
+function opts(){
+  const n=(id,d)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:d; };
+  return {minFreq:n("s-minf",300),minProm:n("s-prom",6),minPersist:n("s-pers",85),width:n("s-width",1)};
+}
+function analyze(){ busy(true); status("Analysiere…"); worker.postMessage({type:"analyze",opts:opts()}); }
+$("reanalyze").addEventListener("click",()=>{ $("result").hidden=true; analyze(); });
+
+function renderTones(){
+  const box=$("tones"); box.innerHTML="";
+  if(!st.tones.length){ const d=document.createElement("div"); d.className="empty"; d.textContent=st.frames?"Keine auffälligen Töne gefunden.":"Noch nichts analysiert."; box.append(d); return; }
+  st.tones.forEach((t,i)=>{
+    const row=document.createElement("label"); row.className="tone"+(t.checked?"":" off"); row.htmlFor="t"+i;
+    const cb=document.createElement("input"); cb.type="checkbox"; cb.id="t"+i; cb.checked=t.checked;
+    cb.addEventListener("change",()=>{ t.checked=cb.checked; row.classList.toggle("off",!cb.checked); draw(); if(!st.busy) $("run").disabled=!st.tones.some(x=>x.checked); });
+    const f=document.createElement("span"); f.className="f"; f.textContent=t.freq.toFixed(1)+" Hz";
+    const d=document.createElement("span"); d.className="d"; d.textContent=t.prom.toFixed(1)+" dB · "+Math.round(t.persist)+" %";
+    const k=document.createElement("span"); k.className="k";
+    if(t.group>0){ const b=document.createElement("b"); b.textContent=t.kind; k.append(b, document.createTextNode(t.h===1?" · dauerhaft vorhanden":"")); }
+    else k.textContent="kurzzeitig, vermutlich Musik oder Stimme";
+    row.append(cb,f,d,k); box.append(row);
+  });
+}
+
+/* ---------- Spektrum zeichnen ---------- */
+function draw(){
+  const cv=$("plot"), dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight;
+  if(!W) return;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const g=cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  const css=getComputedStyle(document.documentElement), col=n=>css.getPropertyValue(n).trim();
+  const padL=34,padR=8,padT=10,padB=24, pw=W-padL-padR, ph=H-padT-padB;
+  g.font="11px "+col("--f-data"); g.textBaseline="middle";
+  if(!st.prom){ g.fillStyle=col("--muted"); g.textAlign="center"; g.fillText("Spektrum erscheint nach der Analyse",W/2,H/2); return; }
+  const prom=st.prom, df=st.df, fmin=Math.max(30,df*2), fmax=st.sr/2;
+  const lx=Math.log10(fmin), rx=Math.log10(fmax);
+  const X=f=>padL+(Math.log10(f)-lx)/(rx-lx)*pw;
+  let ymax=20; for(let i=Math.ceil(fmin/df);i<prom.length;i++) if(prom[i]>ymax) ymax=prom[i];
+  ymax=Math.ceil((ymax+3)/10)*10; const ymin=-10;
+  const Y=v=>padT+(1-(v-ymin)/(ymax-ymin))*ph;
+  // Raster
+  g.strokeStyle=col("--line"); g.lineWidth=1; g.fillStyle=col("--muted");
+  g.textAlign="right";
+  for(let v=0;v<=ymax;v+=10){ const y=Math.round(Y(v))+.5; g.beginPath(); g.moveTo(padL,y); g.lineTo(W-padR,y); g.stroke(); g.fillText(v+"",padL-6,y); }
+  g.textAlign="center";
+  for(const f of [50,100,200,500,1000,2000,5000,10000,20000]){ if(f<fmin||f>fmax) continue; const x=Math.round(X(f))+.5; g.beginPath(); g.moveTo(x,padT); g.lineTo(x,padT+ph); g.stroke(); g.fillText(f>=1000?(f/1000)+"k":f+"",x,H-10); }
+  // Kurve: je Pixelspalte das Maximum
+  g.strokeStyle=col("--accent"); g.lineWidth=1.2; g.beginPath();
+  let started=false;
+  for(let px=0;px<=pw;px++){
+    const f0=Math.pow(10,lx+(px/pw)*(rx-lx)), f1=Math.pow(10,lx+((px+1)/pw)*(rx-lx));
+    let i0=Math.floor(f0/df), i1=Math.max(i0,Math.floor(f1/df)); if(i0>=prom.length) break;
+    let m=-1e9; for(let i=i0;i<=Math.min(i1,prom.length-1);i++) if(prom[i]>m) m=prom[i];
+    const y=Y(Math.max(ymin,Math.min(ymax,m)));
+    if(!started){ g.moveTo(padL+px,y); started=true; } else g.lineTo(padL+px,y);
+  }
+  g.stroke();
+  // Markierungen
+  for(const t of st.tones){
+    if(t.freq<fmin||t.freq>fmax) continue;
+    const x=Math.round(X(t.freq))+.5;
+    g.strokeStyle=t.checked?col("--hit"):col("--muted"); g.lineWidth=t.checked?1.5:1;
+    g.setLineDash(t.checked?[]:[3,3]); g.beginPath(); g.moveTo(x,padT); g.lineTo(x,padT+ph); g.stroke();
+  }
+  g.setLineDash([]);
+  g.save(); g.translate(10,padT+ph/2); g.rotate(-Math.PI/2); g.textAlign="center"; g.fillStyle=col("--muted"); g.fillText("dB",0,0); g.restore();
+}
+let rz; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(draw,100); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+/* ---------- Filtern ---------- */
+$("run").addEventListener("click",()=>{
+  const sel=st.tones.filter(t=>t.checked).map(t=>({freq:t.freq,prom:t.prom,h:t.h}));
+  if(!sel.length) return;
+  busy(true); status("Filtere…"); bar(0);
+  worker.postMessage({type:"filter",tones:sel,factor:opts().width});
+});
+function renderReport(rep){
+  const t=$("rep"); t.innerHTML="";
+  const hr=t.insertRow(); for(const h of ["Frequenz","vorher","nachher"]){ const th=document.createElement("th"); th.textContent=h; hr.append(th); }
+  for(const r of rep){ const tr=t.insertRow(); tr.insertCell().textContent=r.freq.toFixed(1)+" Hz"; tr.insertCell().textContent=r.before.toFixed(1)+" dB"; tr.insertCell().textContent=r.after.toFixed(1)+" dB"; }
+}
+
+/* ---------- Anhören A/B ---------- */
+function setPlayer(which){
+  const a=$("player"), url=which==="orig"?st.origUrl:st.cleanUrl; if(!url) return;
+  const tPos=a.currentTime||0, playing=!a.paused;
+  $("ab-orig").setAttribute("aria-pressed",which==="orig"); $("ab-clean").setAttribute("aria-pressed",which==="clean");
+  if(a.src===url) return;
+  a.src=url;
+  a.addEventListener("loadedmetadata",()=>{ try{ a.currentTime=Math.min(tPos,a.duration||tPos); }catch(e){} if(playing) a.play().catch(()=>{}); },{once:true});
+}
+$("ab-orig").addEventListener("click",()=>setPlayer("orig"));
+$("ab-clean").addEventListener("click",()=>setPlayer("clean"));
+
+/* ---------- WAV / ZIP / MP4 ---------- */
+function wavHeader(dataLen,sr,ch){
+  const b=new ArrayBuffer(44), v=new DataView(b), w=(o,s)=>{ for(let i=0;i<4;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+dataLen,true); w(8,"WAVE"); w(12,"fmt "); v.setUint32(16,16,true);
+  v.setUint16(20,1,true); v.setUint16(22,ch,true); v.setUint32(24,sr,true); v.setUint32(28,sr*ch*2,true);
+  v.setUint16(32,ch*2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,dataLen,true);
+  return new Uint8Array(b);
+}
+function wavBlob(pcm,sr,ch){ return new Blob([wavHeader(pcm.byteLength,sr,ch),pcm],{type:"audio/wav"}); }
+
+const CRC=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+async function crc32(parts){
+  let c=0xFFFFFFFF, done=0; const total=parts.reduce((s,p)=>s+p.length,0);
+  for(const p of parts){
+    for(let o=0;o<p.length;o+=1<<22){
+      const e=Math.min(p.length,o+(1<<22));
+      for(let i=o;i<e;i++) c=CRC[(c^p[i])&255]^(c>>>8);
+      done+=e-o; bar(done/total); await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  return (c^0xFFFFFFFF)>>>0;
+}
+async function zipBlob(name,parts){
+  const size=parts.reduce((s,p)=>s+p.length,0);
+  if(size>0xFFFFFFF0) throw new Error("Datei zu groß für ZIP");
+  const crc=await crc32(parts), nm=new TextEncoder().encode(name), d=new Date();
+  const dt=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate(), tm=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1);
+  const lh=new DataView(new ArrayBuffer(30));
+  lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+  lh.setUint16(10,tm,true); lh.setUint16(12,dt,true); lh.setUint32(14,crc,true); lh.setUint32(18,size,true); lh.setUint32(22,size,true);
+  lh.setUint16(26,nm.length,true); lh.setUint16(28,0,true);
+  const cd=new DataView(new ArrayBuffer(46));
+  cd.setUint32(0,0x02014b50,true); cd.setUint16(4,20,true); cd.setUint16(6,20,true); cd.setUint16(8,0x0800,true); cd.setUint16(10,0,true);
+  cd.setUint16(12,tm,true); cd.setUint16(14,dt,true); cd.setUint32(16,crc,true); cd.setUint32(20,size,true); cd.setUint32(24,size,true);
+  cd.setUint16(28,nm.length,true); cd.setUint32(42,0,true);
+  const cdOff=30+nm.length+size, cdLen=46+nm.length;
+  const eo=new DataView(new ArrayBuffer(22));
+  eo.setUint32(0,0x06054b50,true); eo.setUint16(8,1,true); eo.setUint16(10,1,true); eo.setUint32(12,cdLen,true); eo.setUint32(16,cdOff,true);
+  return new Blob([lh,nm,...parts,cd,nm,eo],{type:"application/zip"});
+}
+
+async function pickCodec(sr,ch){
+  if(!("AudioEncoder" in window)||!window.Mp4Muxer) return null;
+  for(const c of [{codec:"mp4a.40.2",mux:"aac",bitrate:192000},{codec:"opus",mux:"opus",bitrate:160000}]){
+    try{ const s=await AudioEncoder.isConfigSupported({codec:c.codec,sampleRate:sr,numberOfChannels:ch,bitrate:c.bitrate}); if(s&&s.supported) return c; }catch(e){}
+  }
+  return null;
+}
+async function encodeMp4(pcm,sr,ch,c){
+  const target=new Mp4Muxer.ArrayBufferTarget();
+  const muxer=new Mp4Muxer.Muxer({target,audio:{codec:c.mux,numberOfChannels:ch,sampleRate:sr},fastStart:"in-memory",firstTimestampBehavior:"offset"});
+  let fail=null;
+  const enc=new AudioEncoder({output:(chunk,meta)=>muxer.addAudioChunk(chunk,meta),error:e=>{fail=e;}});
+  enc.configure({codec:c.codec,sampleRate:sr,numberOfChannels:ch,bitrate:c.bitrate});
+  const frames=pcm.length/ch, BL=8192;
+  for(let s=0;s<frames;s+=BL){
+    if(fail) throw fail;
+    const n=Math.min(BL,frames-s);
+    const ad=new AudioData({format:"s16",sampleRate:sr,numberOfFrames:n,numberOfChannels:ch,timestamp:Math.round(s*1e6/sr),data:pcm.subarray(s*ch,(s+n)*ch)});
+    enc.encode(ad); ad.close();
+    if(enc.encodeQueueSize>32){ await new Promise(r=>setTimeout(r,0)); bar(s/frames); }
+  }
+  await enc.flush(); enc.close();
+  if(fail) throw fail;
+  muxer.finalize();
+  return new Blob([target.buffer],{type:"video/mp4"});
+}
+
+let dlP=null;
+const getDownloads=()=>dlP||(dlP=(window.claude&&window.claude.use?window.claude.use("downloads"):Promise.resolve(null)).catch(()=>null));
+async function offer(filename,blob){
+  const dl=await getDownloads();
+  if(!dl){ // eigenständig im Browser geöffnet: normaler Download
+    const a=document.createElement("a"), u=URL.createObjectURL(blob); a.href=u; a.download=filename;
+    document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000);
+    status("Gespeichert: "+filename); return; }
+  try{ await dl.save({filename,data:blob}); status("Gespeichert: "+filename); }
+  catch(err){
+    const code=err&&err.code;
+    if(code==="declined") status("Speichern abgebrochen.");
+    else if(code==="too_large") status("Die Datei ist zu groß für diese App. Nimm die kleinere MP4-Variante.",true);
+    else if(code==="rate_limited") status("Es ist schon ein Speichern-Dialog offen. Kurz warten und nochmal tippen.",true);
+    else status("Speichern hat nicht geklappt"+(code?" ("+code+")":"")+".",true);
+  }
+}
+$("save-zip").addEventListener("click",async()=>{
+  if(!st.out) return; busy(true); status("Packe WAV in ZIP…");
+  try{
+    const head=wavHeader(st.out.byteLength,st.sr,st.nch);
+    const blob=await zipBlob(st.base+"_debeeped.wav",[head,new Uint8Array(st.out.buffer,st.out.byteOffset,st.out.byteLength)]);
+    bar(0); await offer(st.base+"_debeeped.zip",blob);
+  }catch(err){ status("ZIP fehlgeschlagen: "+(err.message||err),true); }
+  busy(false); bar(0);
+});
+$("save-mp4").addEventListener("click",async()=>{
+  if(!st.out||!st.codec) return; busy(true); status("Kodiere MP4…");
+  try{ const blob=await encodeMp4(st.out,st.sr,st.nch,st.codec); bar(0); await offer(st.base+"_debeeped.mp4",blob); }
+  catch(err){ status("MP4 fehlgeschlagen: "+(err.message||err)+". Nimm die WAV-Variante.",true); }
+  busy(false); bar(0);
+});
+
+/* ---------- Start: Beispiel laden, damit man sofort sieht, was passiert ---------- */
+draw();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(draw);
+loadDemo();
+})();
+</script>
+
+</body>
+</html>
